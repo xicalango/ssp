@@ -11,17 +11,19 @@ from optparse import OptionParser
 class SSP:
 	
 	DB_LOCATION = ":memory:"
-	DEFAULT_TABLE_NAME = 'data'
+	DEFAULT_TABLE_NAME = 'ssp_data'
 
 	def __init__(self, **config):
 		self.config = config
-		self.conn = sqlite3.connect(SSP.DB_LOCATION)
+		self.conn = sqlite3.connect(self.getConfig('db_file'))
 		self.cursor = self.conn.cursor()
 
 	def define_columns(self, columns):
 		self.columns = columns
 		self.column_line = ','.join([desc for desc,_ in columns])
 		
+		self.cursor.execute('DROP TABLE IF EXISTS {0}'.format(self.getTableName()))
+
 		output = cStringIO.StringIO()
 		output.write('CREATE TABLE ')
 		output.write(self.getTableName())
@@ -82,7 +84,7 @@ class SSP:
 			
 			if firstlinecolumns:
 				firstlinecolumns = False
-				column_defs = [(k,'TEXT') for k in split_line]
+				column_defs = [(k,'UNKNOWN') for k in split_line]
 				self.define_columns(column_defs)
 				continue
 
@@ -134,23 +136,29 @@ class SSP:
 				print field,
 			print ''	
 
+	def close(self):
+		self.conn.commit()
+		self.cursor.close()
+		self.conn.close()
+
 
 parser = OptionParser()
 parser.add_option('-t', '--table', dest = 'table_name', metavar='TABLE_NAME', default=SSP.DEFAULT_TABLE_NAME)
-parser.add_option('-i', '--ignore-wrong-lines', dest = 'ignore_wrong_lines',  default=True)
-parser.add_option('-1', '--first-line-headers', dest = 'first_line_headers', default=True)
-parser.add_option('-j', '--join-long-rows', dest = 'join_long_rows', default=True)
-parser.add_option('-f', '--fill-short-rows', dest = 'fill_short_rows', default=False)
+parser.add_option('-i', '--ignore-wrong-lines', dest = 'ignore_wrong_lines',  default=True, action='store_false')
+parser.add_option('-1', '--first-line-headers', dest = 'first_line_headers', default=True, action='store_false')
+parser.add_option('-j', '--join-long-rows', dest = 'join_long_rows', default=True, action='store_false')
+parser.add_option('-f', '--fill-short-rows', dest = 'fill_short_rows', default=False, action='store_true')
 parser.add_option('-d', '--delimiter', dest = 'delimiter', default=' ')
+parser.add_option('--db', dest = 'db_file', default=SSP.DB_LOCATION)
 
 (options, args) = parser.parse_args()
 
 options_dict = vars(options)
-
-print options_dict
 
 ssp = SSP( **options_dict )
 
 ssp.process(args[1:])
 
 ssp.execute(args[0])
+
+ssp.close()
