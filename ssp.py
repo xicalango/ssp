@@ -39,7 +39,11 @@ class SSP:
 		self.conn.commit()
 
 	def getConfig(self, config_value, default = None):
-		return self.config.get(config_value) or default
+		val = self.config.get(config_value)
+		if val == None:
+			return default
+		
+		return val
 
 	def getTableName(self):
 		return self.getConfig('table_name', SSP.DEFAULT_TABLE_NAME)
@@ -66,6 +70,7 @@ class SSP:
 	def onLineError(self, text):
 		if self.getConfig('ignore_wrong_lines', default = True):
 			sys.stderr.write(text)
+			sys.stderr.write('\n')
 		else:
 			raise Exception(text)
 
@@ -132,9 +137,7 @@ class SSP:
 	def execute(self, command):
 		self.cursor.execute(command)
 		for row in self.cursor:
-			for field in row:
-				print field,
-			print ''	
+			print '|'.join([str(r) for r in row])
 
 	def close(self):
 		self.conn.commit()
